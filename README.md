@@ -32,7 +32,7 @@
 
 ### 部署方式 A：GitHub + Vercel + 阿里云域名（推荐，国内访问更友好）
 
-1. **推送到 GitHub**（仓库需先在 GitHub 创建）：
+1. **推送到 GitHub**（仓库需先在 GitHub 创建；**若仓库是空的，必须先 push，Vercel 才能部署**）：
    ```bash
    git init
    git add .
@@ -41,6 +41,7 @@
    git remote add origin https://github.com/你的用户名/仓库名.git
    git push -u origin main
    ```
+   若 Vercel 里 **Framework Preset** 显示 **Other**，多半是仓库仍为空或未含 `package.json`；推满代码后重新 **Import / Redeploy**，或手动把框架改为 **Next.js**。
 2. **Vercel**：打开 [vercel.com](https://vercel.com) → 用 GitHub 登录 → **Add New → Project** → 选择该仓库 **Import** → 框架选 **Next.js**（一般自动识别）。
    - **Production Branch** 选 **`main`**（本仓库默认分支为 `main`；若 Vercel 报「找不到分支或仓库为空」，先确认 GitHub 上 `main` 已有代码再 Import）。
    - **Project Name** 若提示已存在，换一个未用过的名称（如 `ai-ad-agent`）。
