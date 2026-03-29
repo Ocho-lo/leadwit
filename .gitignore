@@ -1,0 +1,15 @@
+# dependencies
+node_modules/
+
+# next / opennext
+.next/
+.open-next/
+.wrangler.generated.jsonc
+
+# env
+.env*.local
+.dev.vars
+
+# misc
+.DS_Store
+.vercel
