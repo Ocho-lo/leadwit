@@ -47,7 +47,13 @@
    - **Project Name** 若提示已存在，换一个未用过的名称（如 `ai-ad-agent`）。
    → 然后 **Deploy**。
 3. **环境变量**：部署完成后在 Vercel 项目 **Settings → Environment Variables** 中填入与 `.env.local.example` 一致的变量（至少 LLM 相关项）。
-4. **阿里云域名**：Vercel 项目 **Settings → Domains** → 添加你的域名；按 Vercel 提示在 **阿里云 DNS** 添加 **CNAME**（或根域用 A/ALIAS 按 Vercel 文档）解析到 Vercel。生效后用 `https://你的域名` 访问即可。
+4. **阿里云 / Cloudflare 域名**：Vercel **Settings → Domains** 添加域名；在 DNS 商处按 Vercel 显示的值添加 **CNAME**（根域按其说明配置）。若经 **Cloudflare 代理（橙云）**，SSL/TLS 建议 **Full (strict)**。
+
+#### Vercel 显示 Ready 但访问是 404（NOT_FOUND）
+
+- 仓库根目录已包含 [`vercel.json`](vercel.json)，其中 `"framework": "nextjs"`，用于避免项目被误判为 **Other** 而导致首页 404。
+- 仍异常时：Vercel → **Settings → General → Framework Preset** 手动选 **Next.js**；**Root Directory** 留空或 `.`；**Output Directory** 留空；保存后 **Deployments → Redeploy**。
+- 对比测试：若 `xxx.vercel.app` 正常而自定义域 404，检查 **Domains** 是否已添加该主机名，且 DNS 与 Vercel 要求一致。
 
 ---
 
