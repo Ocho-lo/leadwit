@@ -3,10 +3,14 @@ import { AdRecord } from '@/types';
 import { generateDemoResponse } from '@/lib/demo-engine';
 import { generateLLMResponse } from '@/lib/llm-engine';
 import type { PlatformId, PlatformCredentials } from '@/lib/platforms';
+import {
+  hasValidEnvLlmKey,
+  sanitizeLlmClientFromBody,
+  type LlmClientConfig,
+} from '@/lib/llm-client-config';
 
-function isLLMMode(): boolean {
-  const key = process.env.OPENAI_API_KEY;
-  return !!key && key !== 'sk-your-key-here' && key.length > 10;
+function resolveLlmClient(body: Record<string, unknown>): LlmClientConfig | null {
+  return sanitizeLlmClientFromBody(body.llmClient);
 }
 
 export async function POST(req: NextRequest) {
@@ -17,9 +21,11 @@ export async function POST(req: NextRequest) {
       data?: AdRecord[];
       history?: Array<{ role: 'user' | 'assistant'; content: string }>;
       platformCredentials?: Record<PlatformId, PlatformCredentials>;
+      llmClient?: unknown;
     };
 
-    const mode = isLLMMode() ? 'llm' : 'demo';
+    const clientLlm = resolveLlmClient(body as Record<string, unknown>);
+    const mode = hasValidEnvLlmKey() || clientLlm ? 'llm' : 'demo';
     const currentData = data && data.length > 0 ? data : [];
 
     if (!message && currentData.length > 0) {
@@ -49,7 +55,13 @@ export async function POST(req: NextRequest) {
     }
 
     if (mode === 'llm') {
-      const response = await generateLLMResponse(message, currentData, history || [], platformCredentials);
+      const response = await generateLLMResponse(
+        message,
+        currentData,
+        history || [],
+        platformCredentials,
+        clientLlm ?? undefined,
+      );
       return NextResponse.json(response);
     }
 

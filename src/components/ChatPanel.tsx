@@ -5,6 +5,8 @@ import { Message, AdRecord } from '@/types';
 import MessageBubble from './MessageBubble';
 import { Send, Sparkles, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import type { LlmClientConfig } from '@/lib/llm-client-config';
+import { isValidClientLlmApiKey } from '@/lib/llm-client-config';
 
 const QUICK_QUESTIONS = [
   '哪个渠道的 CPA 最高？',
@@ -19,19 +21,25 @@ interface ChatPanelProps {
   data: AdRecord[];
   onModeDetected?: (mode: 'demo' | 'llm') => void;
   platformCredentials?: Record<string, unknown>;
+  llmClient?: LlmClientConfig | null;
 }
 
-export default function ChatPanel({ data, onModeDetected, platformCredentials }: ChatPanelProps) {
+export default function ChatPanel({ data, onModeDetected, platformCredentials, llmClient }: ChatPanelProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const platformCredsRef = useRef(platformCredentials);
+  const llmClientRef = useRef(llmClient);
 
   useEffect(() => {
     platformCredsRef.current = platformCredentials;
   }, [platformCredentials]);
+
+  useEffect(() => {
+    llmClientRef.current = llmClient;
+  }, [llmClient]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -69,6 +77,15 @@ export default function ChatPanel({ data, onModeDetected, platformCredentials }:
       const creds = platformCredsRef.current;
       if (creds && Object.keys(creds).length > 0) {
         body.platformCredentials = creds;
+      }
+
+      const lc = llmClientRef.current;
+      if (lc && isValidClientLlmApiKey(lc.apiKey)) {
+        body.llmClient = {
+          apiKey: lc.apiKey,
+          ...(lc.baseURL ? { baseURL: lc.baseURL } : {}),
+          ...(lc.model ? { model: lc.model } : {}),
+        };
       }
 
       const res = await fetch('/api/chat', {

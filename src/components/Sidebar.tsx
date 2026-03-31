@@ -4,6 +4,8 @@ import { AdRecord } from '@/types';
 import DataUploader from './DataUploader';
 import Dashboard from './Dashboard';
 import PlatformPanel from './PlatformPanel';
+import LlmSettingsPanel from './LlmSettingsPanel';
+import type { LlmClientConfig } from '@/lib/llm-client-config';
 import { Bot, Shield, Wrench, BookOpen } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -20,9 +22,16 @@ interface SidebarProps {
   onDataLoaded: (data: AdRecord[]) => void;
   onPlatformDataSynced?: (data: AdRecord[], platformName: string) => void;
   onPlatformCredentialsChange?: (credentials: Record<string, StoredCredentials>) => void;
+  onLlmClientChange?: (config: LlmClientConfig | null) => void;
 }
 
-export default function Sidebar({ data, onDataLoaded, onPlatformDataSynced, onPlatformCredentialsChange }: SidebarProps) {
+export default function Sidebar({
+  data,
+  onDataLoaded,
+  onPlatformDataSynced,
+  onPlatformCredentialsChange,
+  onLlmClientChange,
+}: SidebarProps) {
   return (
     <aside className="w-[340px] flex-shrink-0 h-screen bg-surface-1 border-r border-surface-3/50 flex flex-col overflow-hidden">
       <div className="p-4 pb-3 border-b border-surface-3/50">
@@ -38,6 +47,11 @@ export default function Sidebar({ data, onDataLoaded, onPlatformDataSynced, onPl
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <section>
+          <h2 className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2.5">大模型</h2>
+          <LlmSettingsPanel onLlmClientChange={onLlmClientChange} />
+        </section>
+
         <section>
           <h2 className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2.5">数据源</h2>
           <DataUploader onDataLoaded={onDataLoaded} hasData={data.length > 0} />

@@ -3,6 +3,7 @@ import { AdRecord, ToolCallInfo, Citation } from '@/types';
 import { TOOL_DEFINITIONS, executeTool } from './tools';
 import { PLATFORM_TOOL_DEFINITIONS, executePlatformTool } from './platform-tools';
 import type { PlatformId, PlatformCredentials } from './platforms';
+import type { LlmClientConfig } from './llm-client-config';
 
 const SYSTEM_PROMPT = `你是 AdPilot AI，一个专业的广告投放策略分析师。你的任务是基于真实投放数据为用户提供精准分析和策略建议。
 
@@ -124,24 +125,42 @@ interface LLMResponse {
   mode: 'llm';
 }
 
-function resolveConfig(): { apiKey: string; baseURL: string; model: string; provider: string } {
-  const apiKey = process.env.OPENAI_API_KEY || '';
+function resolveConfig(clientOverride?: LlmClientConfig | null): {
+  apiKey: string;
+  baseURL: string;
+  model: string;
+  provider: string;
+  usedBrowserKey: boolean;
+} {
+  const envKey = (process.env.OPENAI_API_KEY || '').trim();
+  const userKey = clientOverride?.apiKey?.trim() || '';
+  const apiKey = userKey || envKey;
   const isGoogleKey = apiKey.startsWith('AIzaSy');
+
+  const envBase = process.env.OPENAI_BASE_URL?.trim();
+  const envModel = process.env.OPENAI_MODEL?.trim();
+  const overrideBase = clientOverride?.baseURL?.trim();
+  const overrideModel = clientOverride?.model?.trim();
 
   if (isGoogleKey) {
     return {
       apiKey,
-      baseURL: process.env.OPENAI_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta/openai/',
-      model: process.env.OPENAI_MODEL || 'gemini-2.0-flash',
+      baseURL:
+        overrideBase ||
+        envBase ||
+        'https://generativelanguage.googleapis.com/v1beta/openai/',
+      model: overrideModel || envModel || 'gemini-2.0-flash',
       provider: 'google',
+      usedBrowserKey: !!userKey,
     };
   }
 
   return {
     apiKey,
-    baseURL: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
-    model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+    baseURL: overrideBase || envBase || 'https://api.openai.com/v1',
+    model: overrideModel || envModel || 'gpt-4o-mini',
     provider: 'openai',
+    usedBrowserKey: !!userKey,
   };
 }
 
@@ -152,13 +171,16 @@ export async function generateLLMResponse(
   data: AdRecord[],
   history: Array<{ role: 'user' | 'assistant'; content: string }> = [],
   platformCredentials?: Record<PlatformId, PlatformCredentials>,
+  clientOverride?: LlmClientConfig | null,
 ): Promise<LLMResponse> {
-  const config = resolveConfig();
+  const config = resolveConfig(clientOverride);
   if (!config.apiKey) {
-    throw new Error('OPENAI_API_KEY is not set');
+    throw new Error('LLM API Key 未配置（请在页面「大模型」中填写，或配置服务器环境变量 OPENAI_API_KEY）');
   }
 
-  console.log(`[AdPilot] Using provider: ${config.provider}, model: ${config.model}, baseURL: ${config.baseURL}`);
+  console.log(
+    `[AdPilot] Using provider: ${config.provider}, model: ${config.model}, baseURL: ${config.baseURL}, keySource: ${config.usedBrowserKey ? 'browser' : 'env'}`,
+  );
 
   const client = new OpenAI({
     apiKey: config.apiKey,
@@ -260,13 +282,18 @@ export async function generateLLMResponse(
     if (isTimeout) {
       userHint = `**API 连接超时**（${config.provider} / ${config.baseURL}）\n\n` +
         `当前网络无法正常访问该 API 地址。建议：\n\n` +
-        `1. **使用国内可直连的 API**（推荐）：在 \`.env.local\` 中配置：\n` +
-        `   - DeepSeek：\`OPENAI_BASE_URL=https://api.deepseek.com\` + \`OPENAI_MODEL=deepseek-chat\`\n` +
-        `   - 智谱 AI：\`OPENAI_BASE_URL=https://open.bigmodel.cn/api/paas/v4\` + \`OPENAI_MODEL=glm-4-flash\`\n` +
-        `2. **使用代理**：设置 \`OPENAI_BASE_URL\` 为你的代理地址\n` +
-        `3. **继续使用 Demo 模式**：注释掉 \`OPENAI_API_KEY\` 即可`;
+        `1. **使用国内可直连的 API**（推荐）：在左侧栏 **大模型** 中填写 Base URL 与模型，或在服务器配置：\n` +
+        `   - DeepSeek：Base URL \`https://api.deepseek.com\` + 模型 \`deepseek-chat\`\n` +
+        `   - 智谱：\`https://open.bigmodel.cn/api/paas/v4\` + 模型 \`glm-4-flash\`\n` +
+        `2. **使用代理**：将 Base URL 改为你的代理地址\n` +
+        `3. **继续使用 Demo 模式**：清除页面中的 LLM Key`;
     } else if (isAuth) {
-      userHint = `**API Key 认证失败**\n\n请检查 \`.env.local\` 中的 \`OPENAI_API_KEY\` 是否正确。`;
+      userHint =
+        `**API Key 认证失败**\n\n请检查：\n` +
+        (config.usedBrowserKey
+          ? `- 左侧栏 **大模型** 里填写的 API Key、API 地址、模型名是否与服务商一致\n`
+          : `- 服务器环境变量 \`OPENAI_API_KEY\` 是否正确\n`) +
+        `- 或在左侧栏 **大模型** 中使用你自己的 Key（BYOK）`;
     } else {
       userHint = `**API 调用出错**：${errMsg}\n\n请检查网络连接和 API 配置。`;
     }

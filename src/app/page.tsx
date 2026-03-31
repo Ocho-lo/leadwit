@@ -5,6 +5,8 @@ import { AdRecord } from '@/types';
 import Sidebar from '@/components/Sidebar';
 import ChatPanel from '@/components/ChatPanel';
 import { Shield, GitBranch, Brain, Link2 } from 'lucide-react';
+import type { LlmClientConfig } from '@/lib/llm-client-config';
+import { isValidClientLlmApiKey } from '@/lib/llm-client-config';
 
 interface StoredCredentials {
   platformId: string;
@@ -18,6 +20,7 @@ export default function Home() {
   const [data, setData] = useState<AdRecord[]>([]);
   const [agentMode, setAgentMode] = useState<'demo' | 'llm'>('demo');
   const [platformCredentials, setPlatformCredentials] = useState<Record<string, StoredCredentials>>({});
+  const [llmClient, setLlmClient] = useState<LlmClientConfig | null>(null);
 
   const handleModeDetected = useCallback((mode: 'demo' | 'llm') => {
     setAgentMode(mode);
@@ -35,7 +38,16 @@ export default function Home() {
     setPlatformCredentials(credentials);
   }, []);
 
+  const handleLlmClientChange = useCallback((config: LlmClientConfig | null) => {
+    setLlmClient(config);
+    if (!isValidClientLlmApiKey(config?.apiKey)) {
+      setAgentMode('demo');
+    }
+  }, []);
+
   const connectedPlatformCount = Object.keys(platformCredentials).length;
+  const browserLlmEnabled = isValidClientLlmApiKey(llmClient?.apiKey);
+  const showLlmHeader = browserLlmEnabled || agentMode === 'llm';
 
   return (
     <div className="flex h-screen bg-surface-0">
@@ -44,21 +56,24 @@ export default function Home() {
         onDataLoaded={setData}
         onPlatformDataSynced={handlePlatformDataSynced}
         onPlatformCredentialsChange={handlePlatformCredentialsChange}
+        onLlmClientChange={handleLlmClientChange}
       />
       <main className="flex-1 flex flex-col overflow-hidden">
         <header className="flex items-center justify-between px-6 py-3 border-b border-surface-3/50 bg-surface-1/50 backdrop-blur-sm">
           <div>
             <h1 className="text-sm font-semibold text-slate-200">AI 对话分析</h1>
             <p className="text-[11px] text-slate-500">
-              {agentMode === 'llm'
-                ? '由 GPT 驱动的智能策略分析，数据由代码精确计算'
+              {showLlmHeader
+                ? browserLlmEnabled
+                  ? '使用你在侧栏填写的 LLM API Key（请求由本站服务端转发）'
+                  : '由 GPT 驱动的智能策略分析，数据由代码精确计算'
                 : '通过自然语言与投放数据交互，获取精准分析和优化建议'}
             </p>
           </div>
           <div className="flex items-center gap-3">
             <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] text-slate-500 bg-surface-2/50 border border-surface-4/30">
               <GitBranch size={11} />
-              <span>Tool Use + {agentMode === 'llm' ? 'Function Calling' : 'RAG'} + 数据校验</span>
+              <span>Tool Use + {showLlmHeader ? 'Function Calling' : 'RAG'} + 数据校验</span>
             </div>
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] bg-brand-500/10 text-brand-300 border border-brand-500/20">
               <Shield size={11} />
@@ -70,10 +85,10 @@ export default function Home() {
                 {connectedPlatformCount} 平台
               </span>
             )}
-            {agentMode === 'llm' ? (
+            {showLlmHeader ? (
               <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] bg-violet-500/10 text-violet-300 border border-violet-500/20">
                 <Brain size={11} />
-                GPT
+                {browserLlmEnabled ? 'LLM' : 'GPT'}
               </span>
             ) : (
               <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
@@ -84,7 +99,12 @@ export default function Home() {
           </div>
         </header>
         <div className="flex-1 overflow-hidden">
-          <ChatPanel data={data} onModeDetected={handleModeDetected} platformCredentials={platformCredentials} />
+          <ChatPanel
+            data={data}
+            onModeDetected={handleModeDetected}
+            platformCredentials={platformCredentials}
+            llmClient={llmClient}
+          />
         </div>
       </main>
     </div>
