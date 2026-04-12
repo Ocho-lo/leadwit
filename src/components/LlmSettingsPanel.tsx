@@ -66,16 +66,27 @@ export default function LlmSettingsPanel({ onLlmClientChange }: LlmSettingsPanel
       setSavedHint('请填写有效的 API Key（长度需大于 10 个字符）');
       return;
     }
-    const b = baseURL.trim();
-    const m = model.trim();
+    const b = baseURL.trim().replace(/\/+$/, '');
+    let m = model.trim();
+    const isMiniMax = /api\.minimax(i)?\.(com|io)/i.test(b);
+    if (isMiniMax && /\/anthropic$/i.test(b)) {
+      setSavedHint('检测到 MiniMax 的 /anthropic 地址，已自动切换为 /v1（OpenAI 兼容）');
+    }
+    const normalizedBase = isMiniMax ? b.replace(/\/anthropic$/i, '/v1') : b;
+    if (isMiniMax && (!m || /^mini-?max$/i.test(m))) {
+      m = 'MiniMax-M2.7';
+    }
+
     const cfg: LlmClientConfig = {
       apiKey: key,
-      ...(b ? { baseURL: b } : {}),
+      ...(normalizedBase ? { baseURL: normalizedBase } : {}),
       ...(m ? { model: m } : {}),
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg));
     emitConfig(cfg);
-    setSavedHint('已保存（仅保存在本机浏览器）');
+    if (!(isMiniMax && /\/anthropic$/i.test(b))) {
+      setSavedHint('已保存（仅保存在本机浏览器）');
+    }
     window.setTimeout(() => setSavedHint(null), 2500);
   };
 
@@ -162,7 +173,7 @@ export default function LlmSettingsPanel({ onLlmClientChange }: LlmSettingsPanel
               type="text"
               value={model}
               onChange={e => setModel(e.target.value)}
-              placeholder="如 gpt-4o-mini、deepseek-chat"
+              placeholder="如 gpt-4o-mini、deepseek-chat、MiniMax-M2.7"
               autoComplete="off"
               className="mt-1 w-full rounded-lg border border-surface-4/50 bg-surface-1/80 text-xs text-slate-200 placeholder:text-slate-600 px-2.5 py-2 outline-none focus:border-brand-500/35"
             />

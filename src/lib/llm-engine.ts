@@ -142,22 +142,51 @@ function resolveConfig(clientOverride?: LlmClientConfig | null): {
   const overrideBase = clientOverride?.baseURL?.trim();
   const overrideModel = clientOverride?.model?.trim();
 
+  const sanitizeBaseURL = (raw: string | undefined) => {
+    if (!raw) return '';
+    const normalized = raw.trim().replace(/\/+$/, '');
+    // MiniMax 的 /anthropic 端点不兼容 OpenAI chat.completions；自动改为 /v1。
+    if (/api\.minimax(i)?\.com\/anthropic$/i.test(normalized)) {
+      return normalized.replace(/\/anthropic$/i, '/v1');
+    }
+    return normalized;
+  };
+
+  const normalizedBase = sanitizeBaseURL(overrideBase || envBase);
+  const isMiniMax = /api\.minimax(i)?\.(com|io)/i.test(normalizedBase);
+  const pickMiniMaxModel = (candidate: string | undefined) => {
+    const m = (candidate || '').trim();
+    if (!m) return 'MiniMax-M2.7';
+    const lowered = m.toLowerCase();
+    if (lowered === 'minimax' || lowered === 'mini-max') {
+      return 'MiniMax-M2.7';
+    }
+    return m;
+  };
+
   if (isGoogleKey) {
     return {
       apiKey,
-      baseURL:
-        overrideBase ||
-        envBase ||
-        'https://generativelanguage.googleapis.com/v1beta/openai/',
+      baseURL: normalizedBase || 'https://generativelanguage.googleapis.com/v1beta/openai/',
       model: overrideModel || envModel || 'gemini-2.0-flash',
       provider: 'google',
       usedBrowserKey: !!userKey,
     };
   }
 
+  if (isMiniMax) {
+    return {
+      apiKey,
+      baseURL: normalizedBase || 'https://api.minimaxi.com/v1',
+      model: pickMiniMaxModel(overrideModel || envModel),
+      provider: 'minimax',
+      usedBrowserKey: !!userKey,
+    };
+  }
+
   return {
     apiKey,
-    baseURL: overrideBase || envBase || 'https://api.openai.com/v1',
+    baseURL: normalizedBase || 'https://api.openai.com/v1',
     model: overrideModel || envModel || 'gpt-4o-mini',
     provider: 'openai',
     usedBrowserKey: !!userKey,
@@ -275,6 +304,8 @@ export async function generateLLMResponse(
     const errMsg = error instanceof Error ? error.message : String(error);
     const isTimeout = errMsg.includes('timed out') || errMsg.includes('ETIMEDOUT') || errMsg.includes('timeout');
     const isAuth = errMsg.includes('401') || errMsg.includes('403') || errMsg.includes('Unauthorized') || errMsg.includes('API key');
+    const isUnknownModel =
+      /unknown model|invalid model|model.*not found|invalid params.*model/i.test(errMsg) || errMsg.includes('(2013)');
 
     console.error(`[AdPilot] LLM error (${config.provider}):`, errMsg);
 
@@ -294,6 +325,12 @@ export async function generateLLMResponse(
           ? `- 左侧栏 **大模型** 里填写的 API Key、API 地址、模型名是否与服务商一致\n`
           : `- 服务器环境变量 \`OPENAI_API_KEY\` 是否正确\n`) +
         `- 或在左侧栏 **大模型** 中使用你自己的 Key（BYOK）`;
+    } else if (isUnknownModel) {
+      userHint =
+        `**模型名不可用**：${errMsg}\n\n` +
+        `请检查模型名与服务商是否匹配：\n` +
+        `- MiniMax 推荐：Base URL \`https://api.minimaxi.com/v1\`，模型 \`MiniMax-M2.7\`\n` +
+        `- 不要把模型名写成 \`minimax\` 这类平台名`;
     } else {
       userHint = `**API 调用出错**：${errMsg}\n\n请检查网络连接和 API 配置。`;
     }
