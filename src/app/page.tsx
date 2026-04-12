@@ -5,7 +5,7 @@ import { AdRecord } from '@/types';
 import Sidebar from '@/components/Sidebar';
 import ChatPanel from '@/components/ChatPanel';
 import Dashboard from '@/components/Dashboard';
-import { Shield, GitBranch, Brain, Link2, Menu, LayoutPanelLeft, LayoutPanelTop } from 'lucide-react';
+import { Link2, Menu, LayoutPanelLeft, LayoutPanelTop } from 'lucide-react';
 import type { LlmClientConfig } from '@/lib/llm-client-config';
 import { isValidClientLlmApiKey } from '@/lib/llm-client-config';
 
@@ -139,29 +139,10 @@ export default function Home() {
                 {showDashboardPane ? '收起看板' : '展开看板'}
               </button>
             )}
-            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] text-slate-500 bg-surface-2/50 border border-surface-4/30">
-              <GitBranch size={11} />
-              <span>工具计算 + {showLlmHeader ? '模型推理' : '规则分析'} + 数据校验</span>
-            </div>
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] bg-brand-500/10 text-brand-300 border border-brand-500/20">
-              <Shield size={11} />
-              <span>防幻觉模式</span>
-            </div>
             {connectedPlatformCount > 0 && (
               <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] bg-blue-500/10 text-blue-300 border border-blue-500/20">
                 <Link2 size={11} />
                 {connectedPlatformCount} 平台
-              </span>
-            )}
-            {showLlmHeader ? (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] bg-violet-500/10 text-violet-300 border border-violet-500/20">
-                <Brain size={11} />
-                {browserLlmEnabled ? 'LLM' : 'GPT'}
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                Demo
               </span>
             )}
           </div>
