@@ -13,11 +13,11 @@ export async function POST(req: NextRequest) {
     };
 
     if (!platformId || !credentials?.accessToken) {
-      return NextResponse.json({ error: '缺少平台凭证' }, { status: 400 });
+      return NextResponse.json({ code: 'MISSING_CREDENTIALS', message: '缺少平台凭证', error: '缺少平台凭证' }, { status: 400 });
     }
 
     if (!startDate || !endDate) {
-      return NextResponse.json({ error: '缺少日期范围' }, { status: 400 });
+      return NextResponse.json({ code: 'MISSING_DATE_RANGE', message: '缺少日期范围', error: '缺少日期范围' }, { status: 400 });
     }
 
     const connector = getConnector(platformId);
@@ -36,6 +36,6 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error('Platform sync error:', error);
     const message = error instanceof Error ? error.message : '数据同步失败';
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ code: 'SYNC_FAILED', message, error: message }, { status: 500 });
   }
 }

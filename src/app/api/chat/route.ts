@@ -24,6 +24,13 @@ export async function POST(req: NextRequest) {
       llmClient?: unknown;
     };
 
+    if (typeof message !== 'string') {
+      return NextResponse.json(
+        { code: 'INVALID_MESSAGE', message: '消息格式错误，请输入文本问题。', content: '消息格式错误，请输入文本问题。', toolCalls: [], citations: [], mode: 'demo' },
+        { status: 400 }
+      );
+    }
+
     const clientLlm = resolveLlmClient(body as Record<string, unknown>);
     const mode = hasValidEnvLlmKey() || clientLlm ? 'llm' : 'demo';
     const currentData = data && data.length > 0 ? data : [];
@@ -70,7 +77,14 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error('Chat API error:', error);
     return NextResponse.json(
-      { content: '处理请求时发生错误，请重试。', toolCalls: [], citations: [], mode: 'demo' },
+      {
+        code: 'CHAT_INTERNAL_ERROR',
+        message: '处理请求时发生错误，请重试。',
+        content: '处理请求时发生错误，请重试。',
+        toolCalls: [],
+        citations: [],
+        mode: 'demo',
+      },
       { status: 500 }
     );
   }

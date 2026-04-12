@@ -30,6 +30,11 @@ interface StoredCredentials {
   advertiserId?: string;
 }
 
+interface SyncMeta {
+  lastSyncedAt?: string;
+  lastError?: string;
+}
+
 interface PlatformPanelProps {
   onDataSynced?: (data: AdRecord[], platformName: string) => void;
   onCredentialsChange?: (credentials: Record<string, StoredCredentials>) => void;
@@ -38,6 +43,7 @@ interface PlatformPanelProps {
 export default function PlatformPanel({ onDataSynced, onCredentialsChange }: PlatformPanelProps) {
   const [expanded, setExpanded] = useState(false);
   const [connections, setConnections] = useState<Record<string, StoredCredentials>>({});
+  const [syncMeta, setSyncMeta] = useState<Record<string, SyncMeta>>({});
   const [syncing, setSyncing] = useState<string | null>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [syncSuccess, setSyncSuccess] = useState<string | null>(null);
@@ -50,6 +56,10 @@ export default function PlatformPanel({ onDataSynced, onCredentialsChange }: Pla
         const parsed = JSON.parse(saved);
         setConnections(parsed);
         onCredentialsChange?.(parsed);
+      }
+      const savedMeta = localStorage.getItem('adpilot_platform_sync_meta');
+      if (savedMeta) {
+        setSyncMeta(JSON.parse(savedMeta) as Record<string, SyncMeta>);
       }
     } catch { /* ignore */ }
   }, []);
@@ -108,6 +118,21 @@ export default function PlatformPanel({ onDataSynced, onCredentialsChange }: Pla
     saveConnections(newConns);
   };
 
+  const saveSyncMeta = useCallback((updater: (prev: Record<string, SyncMeta>) => Record<string, SyncMeta>) => {
+    setSyncMeta((prev) => {
+      const next = updater(prev);
+      localStorage.setItem('adpilot_platform_sync_meta', JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
+  const formatSyncTime = (iso?: string) => {
+    if (!iso) return '未同步';
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return '未同步';
+    return date.toLocaleString('zh-CN', { hour12: false, month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+  };
+
   const syncData = async (platformId: string) => {
     const creds = connections[platformId];
     if (!creds) return;
@@ -132,17 +157,29 @@ export default function PlatformPanel({ onDataSynced, onCredentialsChange }: Pla
       });
 
       const result = await res.json();
-      if (!res.ok) throw new Error(result.error);
+      if (!res.ok) {
+        const codeSuffix = result.code ? `（${result.code}）` : '';
+        throw new Error(`${result.message || result.error || '同步失败'}${codeSuffix}`);
+      }
 
       if (result.data?.length > 0) {
         onDataSynced?.(result.data, result.platform);
         setSyncSuccess(`已同步 ${result.count} 条数据`);
+        saveSyncMeta((prev) => ({
+          ...prev,
+          [platformId]: { lastSyncedAt: new Date().toISOString() },
+        }));
         setTimeout(() => setSyncSuccess(null), 3000);
       } else {
         setSyncError('未获取到数据，请检查广告账户是否有投放记录');
       }
     } catch (err) {
-      setSyncError(err instanceof Error ? err.message : '同步失败');
+      const message = err instanceof Error ? err.message : '同步失败';
+      setSyncError(message);
+      saveSyncMeta((prev) => ({
+        ...prev,
+        [platformId]: { ...prev[platformId], lastError: message },
+      }));
     } finally {
       setSyncing(null);
     }
@@ -195,6 +232,14 @@ export default function PlatformPanel({ onDataSynced, onCredentialsChange }: Pla
                       <span className="text-[10px] text-slate-600">{platform.channels.join(' · ')}</span>
                     </div>
                   </div>
+                  {isConnected && (
+                    <div className="text-[10px] text-slate-500 mb-1.5">
+                      上次同步：{formatSyncTime(syncMeta[platform.id]?.lastSyncedAt)}
+                      {connections[platform.id]?.expiresAt && connections[platform.id].expiresAt! < Date.now() && (
+                        <span className="ml-1 text-amber-400">· Token 可能已过期</span>
+                      )}
+                    </div>
+                  )}
 
                   <div className="flex gap-1.5">
                     {isConnected ? (
