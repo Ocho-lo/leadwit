@@ -75,7 +75,9 @@ export default function ChatPanel({ data, onModeDetected, platformCredentials, l
 
     try {
       const body: Record<string, unknown> = { message: userMessage };
-      body.data = uploadData || (data.length > 0 ? data : undefined);
+      // 限制每次发送的数据量上限（避免超过 Vercel/Cloudflare 请求体限制）
+      const rawData = uploadData || (data.length > 0 ? data : undefined);
+      body.data = rawData && rawData.length > 500 ? rawData.slice(-500) : rawData;
       body.history = buildHistory();
       const creds = platformCredsRef.current;
       if (creds && Object.keys(creds).length > 0) {
@@ -97,23 +99,37 @@ export default function ChatPanel({ data, onModeDetected, platformCredentials, l
         body: JSON.stringify(body),
       });
 
-      const result = await res.json();
+      // 先读文本，再解析 JSON，避免服务器返回 HTML 错误页时直接崩溃
+      const rawText = await res.text();
+      let result: Record<string, unknown>;
+      try {
+        result = JSON.parse(rawText);
+      } catch {
+        const isHtml = rawText.trim().startsWith('<');
+        const statusHint = `HTTP ${res.status}`;
+        throw new Error(
+          isHtml
+            ? `服务器返回了错误页（${statusHint}）。可能原因：部署未完成、请求体过大或网络异常，请稍后重试。`
+            : `响应格式异常（${statusHint}）：${rawText.slice(0, 80)}`
+        );
+      }
+
       if (!res.ok) {
         const errorCode = typeof result.code === 'string' ? `（${result.code}）` : '';
-        const errorMessage = result.message || result.error || result.content || '请求失败';
+        const errorMessage = (result.message || result.error || result.content || '请求失败') as string;
         throw new Error(`${errorMessage}${errorCode}`);
       }
 
       if (result.mode && onModeDetected) {
-        onModeDetected(result.mode);
+        onModeDetected(result.mode as 'demo' | 'llm');
       }
 
       setMessages(prev => prev.map(m =>
         m.id === streamingId ? {
           ...m,
-          content: result.content,
-          toolCalls: result.toolCalls,
-          citations: result.citations,
+          content: (result.content as string) || '',
+          toolCalls: result.toolCalls as Message['toolCalls'],
+          citations: result.citations as Message['citations'],
           isStreaming: false,
         } : m
       ));
