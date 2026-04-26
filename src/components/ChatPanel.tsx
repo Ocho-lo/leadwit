@@ -3,18 +3,18 @@
 import { useState, useRef, useEffect } from 'react';
 import { Message, AdRecord } from '@/types';
 import MessageBubble from './MessageBubble';
-import { Send, Sparkles, Zap, PlayCircle, RotateCcw, Download, Trash2, AlertCircle } from 'lucide-react';
+import SlotComposer from './SlotComposer';
+import { SHORTCUTS } from '@/lib/shortcuts';
+import { calcDataSnapshot, saveSnapshot } from '@/lib/snapshots';
+import { Send, Sparkles, Zap, PlayCircle, RotateCcw, Download, Trash2, AlertCircle, Camera } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { LlmClientConfig } from '@/lib/llm-client-config';
 import { isValidClientLlmApiKey } from '@/lib/llm-client-config';
 
 const QUICK_QUESTIONS = [
-  '哪个渠道的 CPA 最高？',
-  '帮我制定下周的预算分配方案',
-  '各渠道投放趋势如何？',
-  '哪些活动表现最好？',
-  '检测有没有异常数据',
-  '给我一份整体投放报告',
+  '先给我一份跨平台总览',
+  '帮我找出本周异常并排序',
+  '给我下周预算建议',
 ];
 
 interface ChatPanelProps {
@@ -30,6 +30,7 @@ export default function ChatPanel({ data, onModeDetected, platformCredentials, l
   const [isLoading, setIsLoading] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   const [lastRequest, setLastRequest] = useState<{ userMessage: string; uploadData?: AdRecord[] } | null>(null);
+  const [shortcutIndex, setShortcutIndex] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const platformCredsRef = useRef(platformCredentials);
@@ -46,6 +47,10 @@ export default function ChatPanel({ data, onModeDetected, platformCredentials, l
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  useEffect(() => {
+    setShortcutIndex(0);
+  }, [input]);
 
   const buildHistory = (): Array<{ role: 'user' | 'assistant'; content: string }> => {
     return messages
@@ -196,7 +201,43 @@ export default function ChatPanel({ data, onModeDetected, platformCredentials, l
     sendToAPI(lastRequest.userMessage, lastRequest.uploadData);
   };
 
+  const handlePinSnapshot = () => {
+    if (data.length === 0) return;
+    const snapshot = calcDataSnapshot(data, { pinnedMessages: messages });
+    saveSnapshot(snapshot);
+  };
+
+  const handleInsertSlotPrompt = (prompt: string) => {
+    if (!prompt || isLoading) return;
+    setInput(prompt);
+    inputRef.current?.focus();
+  };
+
+  const filteredShortcuts = input.startsWith('/')
+    ? SHORTCUTS.filter((s) => s.cmd.includes(input.toLowerCase()) || s.label.includes(input.slice(1)))
+    : [];
+
+  const applyShortcut = (prompt: string) => {
+    setInput(prompt);
+    inputRef.current?.focus();
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (filteredShortcuts.length > 0 && e.key === 'ArrowDown') {
+      e.preventDefault();
+      setShortcutIndex((prev) => (prev + 1) % filteredShortcuts.length);
+      return;
+    }
+    if (filteredShortcuts.length > 0 && e.key === 'ArrowUp') {
+      e.preventDefault();
+      setShortcutIndex((prev) => (prev - 1 + filteredShortcuts.length) % filteredShortcuts.length);
+      return;
+    }
+    if (filteredShortcuts.length > 0 && e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      applyShortcut(filteredShortcuts[shortcutIndex]?.prompt || filteredShortcuts[0].prompt);
+      return;
+    }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -211,6 +252,14 @@ export default function ChatPanel({ data, onModeDetected, platformCredentials, l
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length > 0 && (
           <div className="flex items-center justify-end gap-2">
+            <button
+              onClick={handlePinSnapshot}
+              disabled={data.length === 0}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs text-amber-200 border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 disabled:opacity-50 transition-colors"
+            >
+              <Camera size={12} />
+              钉住快照
+            </button>
             <button
               onClick={handleExportChat}
               className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs text-slate-300 border border-surface-4/50 bg-surface-2/50 hover:border-brand-500/30 transition-colors"
@@ -359,6 +408,16 @@ export default function ChatPanel({ data, onModeDetected, platformCredentials, l
       )}
 
       <div className="p-4 pt-2">
+        {data.length > 0 && (
+          <div className="mb-2">
+            <SlotComposer
+              data={data}
+              connectedPlatforms={Object.keys(platformCredentials || {})}
+              onInsert={handleInsertSlotPrompt}
+              disabled={isLoading}
+            />
+          </div>
+        )}
         <div className="flex items-end gap-2 bg-surface-2 border border-surface-4/50 rounded-2xl p-2 focus-within:border-brand-500/40 transition-colors">
           <textarea
             ref={inputRef}
@@ -384,8 +443,24 @@ export default function ChatPanel({ data, onModeDetected, platformCredentials, l
             <Send size={16} />
           </button>
         </div>
+        {filteredShortcuts.length > 0 && (
+          <div className="mt-1.5 rounded-lg border border-surface-4/50 bg-surface-2/80 overflow-hidden">
+            {filteredShortcuts.slice(0, 6).map((shortcut, idx) => (
+              <button
+                key={shortcut.cmd}
+                onClick={() => applyShortcut(shortcut.prompt)}
+                className={`w-full text-left px-3 py-2 text-xs transition-colors ${
+                  idx === shortcutIndex ? 'bg-brand-500/20 text-brand-100' : 'text-slate-300 hover:bg-surface-3/50'
+                }`}
+              >
+                <span className="mr-2 text-brand-300">{shortcut.cmd}</span>
+                <span className="text-slate-400">{shortcut.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
         <p className="text-[11px] text-slate-600 text-center mt-2">
-          Enter 发送，Shift+Enter 换行 · 结果附带来源，便于验证
+          Enter 发送，Shift+Enter 换行，输入 / 可快速调用分析命令
         </p>
       </div>
     </div>

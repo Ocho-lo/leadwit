@@ -9,7 +9,7 @@ export const PLATFORM_TOOL_DEFINITIONS: ToolDefinition[] = [
     parameters: {
       type: 'object',
       properties: {
-        platform: { type: 'string', enum: ['ocean_engine', 'kuaishou', 'tencent_ads'], description: '广告平台 ID' },
+        platform: { type: 'string', enum: ['ocean_engine', 'kuaishou', 'tencent_ads', 'xiaohongshu'], description: '广告平台 ID' },
         start_date: { type: 'string', description: '开始日期 (YYYY-MM-DD)' },
         end_date: { type: 'string', description: '结束日期 (YYYY-MM-DD)' },
       },
@@ -23,7 +23,7 @@ export const PLATFORM_TOOL_DEFINITIONS: ToolDefinition[] = [
     parameters: {
       type: 'object',
       properties: {
-        platform: { type: 'string', enum: ['ocean_engine', 'kuaishou', 'tencent_ads'], description: '广告平台 ID' },
+        platform: { type: 'string', enum: ['ocean_engine', 'kuaishou', 'tencent_ads', 'xiaohongshu'], description: '广告平台 ID' },
       },
       required: ['platform'],
     },
@@ -35,7 +35,7 @@ export const PLATFORM_TOOL_DEFINITIONS: ToolDefinition[] = [
     parameters: {
       type: 'object',
       properties: {
-        platform: { type: 'string', enum: ['ocean_engine', 'kuaishou', 'tencent_ads'], description: '广告平台 ID' },
+        platform: { type: 'string', enum: ['ocean_engine', 'kuaishou', 'tencent_ads', 'xiaohongshu'], description: '广告平台 ID' },
         name: { type: 'string', description: '广告计划名称' },
         budget: { type: 'number', description: '预算金额（元）' },
         budget_mode: { type: 'string', enum: ['daily', 'total'], description: '预算类型：daily=日预算, total=总预算' },
@@ -50,7 +50,7 @@ export const PLATFORM_TOOL_DEFINITIONS: ToolDefinition[] = [
     parameters: {
       type: 'object',
       properties: {
-        platform: { type: 'string', enum: ['ocean_engine', 'kuaishou', 'tencent_ads'], description: '广告平台 ID' },
+        platform: { type: 'string', enum: ['ocean_engine', 'kuaishou', 'tencent_ads', 'xiaohongshu'], description: '广告平台 ID' },
         campaign_id: { type: 'string', description: '广告计划 ID' },
         name: { type: 'string', description: '新名称（可选）' },
         budget: { type: 'number', description: '新预算金额（元，可选）' },

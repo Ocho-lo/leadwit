@@ -2,11 +2,13 @@ import { PlatformConnector, PlatformId, PLATFORM_CONFIGS } from './types';
 import { oceanEngineConnector } from './ocean-engine';
 import { kuaishouConnector } from './kuaishou';
 import { tencentAdsConnector } from './tencent-ads';
+import { xiaohongshuConnector } from './xiaohongshu';
 
 const CONNECTORS: Record<PlatformId, PlatformConnector> = {
   ocean_engine: oceanEngineConnector,
   kuaishou: kuaishouConnector,
   tencent_ads: tencentAdsConnector,
+  xiaohongshu: xiaohongshuConnector,
 };
 
 export function getConnector(platformId: PlatformId): PlatformConnector {

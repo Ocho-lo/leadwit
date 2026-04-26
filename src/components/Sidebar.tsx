@@ -6,6 +6,7 @@ import DataUploader from './DataUploader';
 import Dashboard from './Dashboard';
 import PlatformPanel from './PlatformPanel';
 import LlmSettingsPanel from './LlmSettingsPanel';
+import SnapshotLibrary from './SnapshotLibrary';
 import type { LlmClientConfig } from '@/lib/llm-client-config';
 import { Bot, Shield, Wrench, BookOpen, X } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -131,6 +132,9 @@ export default function Sidebar({
                 <Dashboard data={data} />
               </section>
             )}
+            <section>
+              <SnapshotLibrary data={data} />
+            </section>
           </>
         )}
 

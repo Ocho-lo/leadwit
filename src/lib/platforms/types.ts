@@ -1,6 +1,6 @@
 import { AdRecord } from '@/types';
 
-export type PlatformId = 'ocean_engine' | 'kuaishou' | 'tencent_ads';
+export type PlatformId = 'ocean_engine' | 'kuaishou' | 'tencent_ads' | 'xiaohongshu';
 
 export interface PlatformConfig {
   id: PlatformId;
@@ -108,5 +108,16 @@ export const PLATFORM_CONFIGS: Record<PlatformId, PlatformConfig> = {
     tokenUrl: 'https://api.e.qq.com/oauth/token',
     apiBase: 'https://api.e.qq.com/v1.3',
     scopes: ['ads_management', 'ads_reporting'],
+  },
+  xiaohongshu: {
+    id: 'xiaohongshu',
+    name: '小红书 · 聚光平台',
+    shortName: '小红书',
+    channels: ['xiaohongshu', 'red_search', 'red_feed'],
+    color: '#ff2442',
+    oauthUrl: 'https://ad.xiaohongshu.com/open/oauth/authorize',
+    tokenUrl: 'https://ad.xiaohongshu.com/open/oauth/token',
+    apiBase: 'https://ad.xiaohongshu.com/api/open',
+    scopes: ['report', 'campaign_manage'],
   },
 };
