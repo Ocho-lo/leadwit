@@ -52,6 +52,16 @@ const CHANNEL_PROFILES: ChannelProfile[] = [
     revenuePerConversion: [110, 145],
     retentionRate: [0.42, 0.55],
   },
+  {
+    name: 'xiaohongshu',
+    campaigns: ['种草笔记_小红书_A', '搜索推广_小红书_B'],
+    baseSpend: [2200, 5000],
+    cpmRange: [35, 55],
+    ctrRange: [2.2, 3.2],
+    cvrRange: [3.0, 4.6],
+    revenuePerConversion: [125, 165],
+    retentionRate: [0.50, 0.65],
+  },
 ];
 
 function rand(min: number, max: number): number {

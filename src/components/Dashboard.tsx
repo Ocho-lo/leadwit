@@ -14,6 +14,8 @@ const CHANNEL_COLORS: Record<string, string> = {
   '快手': '#ff6600',
   '微信朋友圈': '#07c160',
   '今日头条': '#ff0000',
+  'xiaohongshu': '#ff2442',
+  '小红书': '#ff2442',
 };
 
 const BAR_COLORS = ['#818cf8', '#6366f1', '#a78bfa', '#c084fc'];
@@ -61,9 +63,58 @@ function CustomTooltip({ active, payload, label }: { active?: boolean; payload?:
   );
 }
 
+const CHANNEL_TO_PLATFORM: Record<string, string> = {
+  '抖音': '巨量引擎',
+  '今日头条': '巨量引擎',
+  '西瓜视频': '巨量引擎',
+  '番茄小说': '巨量引擎',
+  '快手': '磁力引擎',
+  '微信朋友圈': '腾讯广告',
+  '腾讯新闻': '腾讯广告',
+  'QQ空间': '腾讯广告',
+  'xiaohongshu': '小红书',
+  '小红书': '小红书',
+  'red_search': '小红书',
+  'red_feed': '小红书',
+};
+
+const PLATFORM_COLORS: Record<string, string> = {
+  '巨量引擎': '#fe2c55',
+  '磁力引擎': '#ff6600',
+  '腾讯广告': '#07c160',
+  '小红书': '#ff2442',
+};
+
+function aggregateByPlatform(channelMetrics: ChannelMetrics[]): ChannelMetrics[] {
+  const map = new Map<string, { spend: number; revenue: number; conversions: number; newUsers: number; impressions: number; clicks: number }>();
+  for (const ch of channelMetrics) {
+    const platform = CHANNEL_TO_PLATFORM[ch.channel] || ch.channel;
+    const agg = map.get(platform) || { spend: 0, revenue: 0, conversions: 0, newUsers: 0, impressions: 0, clicks: 0 };
+    agg.spend += ch.spend;
+    agg.revenue += ch.revenue;
+    agg.conversions += ch.conversions;
+    agg.newUsers += ch.newUsers;
+    agg.impressions += (ch.spend > 0 && ch.ctr > 0) ? Math.round(ch.spend / ch.ctr * 100) : 0;
+    agg.clicks += (ch.conversions > 0 && ch.cvr > 0) ? Math.round(ch.conversions / ch.cvr * 100) : 0;
+    map.set(platform, agg);
+  }
+  return Array.from(map.entries()).map(([platform, a]) => ({
+    channel: platform,
+    spend: a.spend,
+    revenue: a.revenue,
+    conversions: a.conversions,
+    newUsers: a.newUsers,
+    roi: a.spend > 0 ? +((a.revenue - a.spend) / a.spend * 100).toFixed(1) : 0,
+    cpa: a.conversions > 0 ? +(a.spend / a.conversions).toFixed(2) : 0,
+    ctr: a.impressions > 0 ? +(a.clicks / a.impressions * 100).toFixed(2) : 0,
+    cvr: a.clicks > 0 ? +(a.conversions / a.clicks * 100).toFixed(2) : 0,
+  }));
+}
+
 export default function Dashboard({ data }: { data: AdRecord[] }) {
   const metrics: DashboardMetrics = useMemo(() => calculateDashboardMetrics(data), [data]);
   const channelMetrics: ChannelMetrics[] = useMemo(() => calculateChannelMetrics(data), [data]);
+  const platformMetrics = useMemo(() => aggregateByPlatform(channelMetrics), [channelMetrics]);
   const trendData: TrendDataPoint[] = useMemo(() => calculateTrend(data), [data]);
 
   if (data.length === 0) return null;
@@ -104,16 +155,16 @@ export default function Dashboard({ data }: { data: AdRecord[] }) {
       </div>
 
       <div className="glass rounded-xl p-3 gradient-border">
-        <h3 className="text-xs font-medium text-slate-400 mb-3">渠道 ROI 对比</h3>
+        <h3 className="text-xs font-medium text-slate-400 mb-3">平台 ROI 对比</h3>
         <ResponsiveContainer width="100%" height={120}>
-          <BarChart data={channelMetrics} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+          <BarChart data={platformMetrics} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(42,42,61,0.5)" />
             <XAxis dataKey="channel" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
             <YAxis tick={{ fontSize: 10, fill: '#64748b' }} axisLine={false} tickLine={false} />
             <Tooltip content={<CustomTooltip />} />
             <Bar dataKey="roi" name="ROI %" radius={[4, 4, 0, 0]}>
-              {channelMetrics.map((_, i) => (
-                <Cell key={i} fill={BAR_COLORS[i % BAR_COLORS.length]} />
+              {platformMetrics.map((pm, i) => (
+                <Cell key={i} fill={PLATFORM_COLORS[pm.channel] || BAR_COLORS[i % BAR_COLORS.length]} />
               ))}
             </Bar>
           </BarChart>
@@ -121,11 +172,11 @@ export default function Dashboard({ data }: { data: AdRecord[] }) {
       </div>
 
       <div className="glass rounded-xl p-3 gradient-border overflow-x-auto">
-        <h3 className="text-xs font-medium text-slate-400 mb-2.5">渠道表现</h3>
+        <h3 className="text-xs font-medium text-slate-400 mb-2.5">平台表现</h3>
         <table className="w-full text-[11px]">
           <thead>
             <tr className="border-b border-surface-4/50">
-              <th className="text-left text-slate-500 font-medium pb-1.5 pr-2">渠道</th>
+              <th className="text-left text-slate-500 font-medium pb-1.5 pr-2">平台</th>
               <th className="text-right text-slate-500 font-medium pb-1.5 px-1">花费</th>
               <th className="text-right text-slate-500 font-medium pb-1.5 px-1">CPA</th>
               <th className="text-right text-slate-500 font-medium pb-1.5 px-1">ROI</th>
@@ -133,26 +184,26 @@ export default function Dashboard({ data }: { data: AdRecord[] }) {
             </tr>
           </thead>
           <tbody>
-            {channelMetrics.map(ch => (
-              <tr key={ch.channel} className="border-b border-surface-4/20 hover:bg-surface-3/20 transition-colors">
+            {platformMetrics.map(pm => (
+              <tr key={pm.channel} className="border-b border-surface-4/20 hover:bg-surface-3/20 transition-colors">
                 <td className="py-1.5 pr-2">
                   <div className="flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: CHANNEL_COLORS[ch.channel] || '#6366f1' }} />
-                    <span className="text-slate-300 truncate">{ch.channel}</span>
+                    <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: PLATFORM_COLORS[pm.channel] || '#6366f1' }} />
+                    <span className="text-slate-300 truncate">{pm.channel}</span>
                   </div>
                 </td>
-                <td className="text-right text-slate-400 py-1.5 px-1">¥{(ch.spend / 10000).toFixed(1)}w</td>
+                <td className="text-right text-slate-400 py-1.5 px-1">¥{(pm.spend / 10000).toFixed(1)}w</td>
                 <td className="text-right py-1.5 px-1">
-                  <span className={ch.cpa <= (metrics.overallCPA || 999) ? 'text-emerald-400' : 'text-rose-400'}>
-                    ¥{ch.cpa}
+                  <span className={pm.cpa <= (metrics.overallCPA || 999) ? 'text-emerald-400' : 'text-rose-400'}>
+                    ¥{pm.cpa}
                   </span>
                 </td>
                 <td className="text-right py-1.5 px-1">
-                  <span className={ch.roi >= (metrics.overallROI || 0) ? 'text-emerald-400' : 'text-amber-400'}>
-                    {ch.roi}%
+                  <span className={pm.roi >= (metrics.overallROI || 0) ? 'text-emerald-400' : 'text-amber-400'}>
+                    {pm.roi}%
                   </span>
                 </td>
-                <td className="text-right text-slate-300 py-1.5 pl-1">{ch.cvr}%</td>
+                <td className="text-right text-slate-300 py-1.5 pl-1">{pm.cvr}%</td>
               </tr>
             ))}
           </tbody>

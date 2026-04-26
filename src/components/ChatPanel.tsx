@@ -428,7 +428,7 @@ export default function ChatPanel({ data, onModeDetected, platformCredentials, l
               e.target.style.height = Math.min(e.target.scrollHeight, 128) + 'px';
             }}
             onKeyDown={handleKeyDown}
-            placeholder={data.length > 0 ? '输入你的问题，例如"哪个渠道的 CPA 最高？"' : '请先加载数据...'}
+            placeholder={data.length > 0 ? '输入问题，或输入 / 调出快捷命令（如 /diagnose、/compare）' : '请先加载数据...'}
             disabled={data.length === 0}
             aria-label="对话输入框"
             rows={1}
