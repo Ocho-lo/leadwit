@@ -3,10 +3,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { AdRecord } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
-import Papa from 'papaparse';
 import {
   Link2, Unlink, RefreshCw, ChevronDown, ChevronUp,
-  Calendar, Download, AlertCircle, CheckCircle2, Upload,
+  Calendar, Download, AlertCircle, CheckCircle2,
 } from 'lucide-react';
 
 interface PlatformInfo {
@@ -50,10 +49,6 @@ export default function PlatformPanel({ onDataSynced, onCredentialsChange }: Pla
   const [syncError, setSyncError] = useState<string | null>(null);
   const [syncSuccess, setSyncSuccess] = useState<string | null>(null);
   const [tokenInput, setTokenInput] = useState<{ platformId: string; token: string; advertiserId: string } | null>(null);
-  const [uploadingPlatform, setUploadingPlatform] = useState<string | null>(null);
-
-  const xhsFileInputId = 'xhs-csv-input';
-
   useEffect(() => {
     try {
       const saved = localStorage.getItem('adpilot_platform_credentials');
@@ -96,68 +91,6 @@ export default function PlatformPanel({ onDataSynced, onCredentialsChange }: Pla
       if (url) window.location.href = url;
     } catch {
       setSyncError('无法生成授权链接，请检查平台应用配置');
-    }
-  };
-
-  const parseNumber = (value: string | undefined) => {
-    if (!value) return 0;
-    const normalized = value.replace(/,/g, '').trim();
-    const n = Number(normalized);
-    return Number.isFinite(n) ? n : 0;
-  };
-
-  const parseXhsCsv = (text: string): AdRecord[] => {
-    const parsed = Papa.parse<Record<string, string>>(text, { header: true, skipEmptyLines: true });
-    if (parsed.errors.length > 0) {
-      const first = parsed.errors[0];
-      throw new Error(`CSV 解析失败（第 ${first.row ?? 0} 行）：${first.message}`);
-    }
-    const rows = parsed.data || [];
-    const records = rows.map((row) => {
-      const date = row.date || row['日期'] || row['统计日期'] || row['时间'] || '';
-      const campaignName = row.campaign_name || row['活动名称'] || row['计划名称'] || row['广告名称'] || row['单元名称'] || '';
-      return {
-        date: String(date).trim(),
-        channel: 'xiaohongshu',
-        campaign_name: String(campaignName).trim(),
-        spend: parseNumber(row.spend || row['花费'] || row['消耗']),
-        impressions: parseNumber(row.impressions || row['展示'] || row['曝光']),
-        clicks: parseNumber(row.clicks || row['点击']),
-        conversions: parseNumber(row.conversions || row['转化'] || row['提交线索'] || row['支付订单']),
-        revenue: parseNumber(row.revenue || row['收入'] || row['成交金额']),
-        new_users: parseNumber(row.new_users || row['新增用户']),
-        retained_d7: parseNumber(row.retained_d7 || row['7日留存']),
-      } as AdRecord;
-    }).filter((row) => row.date && row.campaign_name);
-
-    if (records.length === 0) {
-      throw new Error('未识别到有效小红书 CSV 数据，请至少包含日期和活动名称列');
-    }
-    return records;
-  };
-
-  const uploadXhsCsv = async (file: File) => {
-    setUploadingPlatform('xiaohongshu');
-    setSyncError(null);
-    try {
-      const text = await file.text();
-      const records = parseXhsCsv(text);
-      onDataSynced?.(records, '小红书 · 聚光平台（CSV）');
-      setSyncSuccess(`已导入小红书 CSV：${records.length} 条`);
-      saveSyncMeta((prev) => ({
-        ...prev,
-        xiaohongshu: { ...prev.xiaohongshu, lastSyncedAt: new Date().toISOString(), lastError: undefined },
-      }));
-      setTimeout(() => setSyncSuccess(null), 3000);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : '小红书 CSV 导入失败';
-      setSyncError(message);
-      saveSyncMeta((prev) => ({
-        ...prev,
-        xiaohongshu: { ...prev.xiaohongshu, lastError: message },
-      }));
-    } finally {
-      setUploadingPlatform(null);
     }
   };
 
@@ -256,17 +189,6 @@ export default function PlatformPanel({ onDataSynced, onCredentialsChange }: Pla
 
   return (
     <div className="space-y-2">
-      <input
-        id={xhsFileInputId}
-        type="file"
-        accept=".csv"
-        className="hidden"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) uploadXhsCsv(file);
-          e.target.value = '';
-        }}
-      />
       <button
         onClick={() => setExpanded(!expanded)}
         className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-surface-2/50 border border-surface-4/30 hover:border-brand-500/30 transition-colors"
@@ -354,17 +276,6 @@ export default function PlatformPanel({ onDataSynced, onCredentialsChange }: Pla
                           Token 接入
                         </button>
                       </>
-                    )}
-                    {platform.id === 'xiaohongshu' && (
-                      <button
-                        onClick={() => document.getElementById(xhsFileInputId)?.click()}
-                        disabled={uploadingPlatform === 'xiaohongshu'}
-                        className="flex items-center gap-1 px-2 py-1 rounded text-[11px] bg-pink-500/10 text-pink-300 border border-pink-500/20 hover:bg-pink-500/20 transition-colors disabled:opacity-50"
-                        title="上传小红书聚光后台导出的 CSV"
-                      >
-                        <Upload size={10} />
-                        {uploadingPlatform === 'xiaohongshu' ? '导入中...' : '上传聚光 CSV'}
-                      </button>
                     )}
                   </div>
                 </div>
